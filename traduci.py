@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from wikitradus import repo
+from wikitradus import force_utf8_output, repo
 from wikitradus.cli import PrerequisiteError, check_prerequisites
 from wikitradus.translate import LimitReached, process_group, read_group
 
@@ -32,7 +32,11 @@ POST_TEXT = "Ho contribuito a tradurre Wikipedia in italiano, il mio batch è {g
 def pick_group(workdir, requested=None):
     """Sceglie un gruppo libero: quello richiesto, o uno a caso."""
     index = workdir.path / "groups" / "groups.txt"
-    groups = [line.strip() for line in index.read_text().splitlines() if line.strip()]
+    groups = [
+        line.strip()
+        for line in index.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
     if requested:
         name = requested if requested.endswith(".txt") else f"{requested}.txt"
@@ -99,6 +103,7 @@ def assistant_selection(args):
 
 
 def main():
+    force_utf8_output()
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument(
         "--group", "--gruppo", dest="gruppo",

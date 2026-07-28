@@ -89,7 +89,7 @@ class LimitReached(Exception):
 def read_group(path):
     """Legge un file di gruppo: restituisce [(page_id, titolo), …]."""
     entries = []
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         page_id, _, title = line.partition("\t")
@@ -150,7 +150,7 @@ def _extract_one(destination, page_id, title, lang):
         f"# {title}\n\n"
         f"*[Voce originale su Wikipedia]({_wiki_url(title, lang)})*\n\n"
     )
-    path.write_text(header + markdown + "\n")
+    path.write_text(header + markdown + "\n", encoding="utf-8")
     return path
 
 
@@ -159,19 +159,22 @@ def _label(path, text=None):
 
     I file estratti iniziano con `# Titolo`: leggerlo da lì evita di far
     comparire `12345.md` in mezzo a un elenco di titoli.
+
+    Un file scritto da una versione precedente può non essere UTF-8 valido:
+    anche quello vale come «non riesco a leggere il titolo», non come motivo
+    per interrompere il lavoro.
     """
     try:
-        first = (text if text is not None else path.read_text()).lstrip().split(
-            "\n", 1
-        )[0]
-    except OSError:
+        contenuto = text if text is not None else path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
         return path.stem
+    first = contenuto.lstrip().split("\n", 1)[0]
     return first[1:].strip() if first.startswith("# ") else path.stem
 
 
 def _translate_one(path, assistant):
     """Traduce un file sul posto. False se la CLI non ha prodotto nulla."""
-    before = path.read_text()
+    before = path.read_text(encoding="utf-8")
     try:
         answer = assistant.ask(TRANSLATE_PROMPT.format(text=before))
     except UsageLimitError as exc:
@@ -192,7 +195,7 @@ def _translate_one(path, assistant):
         print(f"  {_label(path, before)}: invariato", flush=True)
         return False
 
-    path.write_text(result + "\n")
+    path.write_text(result + "\n", encoding="utf-8")
     return True
 
 
@@ -269,7 +272,7 @@ def _translate_batch(paths, assistant):
     if len(paths) == 1:
         return [paths[0]] if _translate_one(paths[0], assistant) else []
 
-    originals = {path.stem: path.read_text() for path in paths}
+    originals = {path.stem: path.read_text(encoding="utf-8") for path in paths}
     body = "\n\n".join(
         f"{MARKER.format(page_id=path.stem)}\n{originals[path.stem]}"
         for path in paths
@@ -296,7 +299,7 @@ def _translate_batch(paths, assistant):
         # percorso a voce singola.
         if not result or result == originals[path.stem].strip():
             continue
-        path.write_text(result + "\n")
+        path.write_text(result + "\n", encoding="utf-8")
         translated.append(path)
     return translated
 

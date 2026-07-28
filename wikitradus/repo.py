@@ -13,7 +13,8 @@ ASSIGNED_PREFIX = "Assegnata:"
 def gh(*args, check=True):
     """Invoca la CLI di GitHub e restituisce stdout."""
     result = subprocess.run(
-        ["gh", *args], capture_output=True, text=True, check=False
+        ["gh", *args], capture_output=True, text=True, encoding="utf-8",
+        check=False,
     )
     if check and result.returncode != 0:
         raise RuntimeError(f"gh {' '.join(args)}: {result.stderr.strip()}")
@@ -29,7 +30,7 @@ class Workdir:
     def git(self, *args, check=True):
         result = subprocess.run(
             ["git", *args], cwd=self.path, capture_output=True, text=True,
-            check=False,
+            encoding="utf-8", check=False,
         )
         if check and result.returncode != 0:
             raise RuntimeError(f"git {' '.join(args)}: {result.stderr.strip()}")
@@ -57,14 +58,16 @@ class Workdir:
         if not path.exists():
             return set()
         return {
-            line.strip() for line in path.read_text().splitlines() if line.strip()
+            line.strip()
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
         }
 
     def mark_translated(self, group, page_id):
         """Registra una voce come tradotta, in coda a translated.txt."""
         path = self.translated_file(group)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a") as handle:
+        with path.open("a", encoding="utf-8") as handle:
             handle.write(f"{page_id}\n")
 
     # -- sparse checkout ------------------------------------------------------
@@ -110,7 +113,7 @@ def ensure_fork():
     fork = f"{user}/{UPSTREAM.split('/')[1]}"
     result = subprocess.run(
         ["gh", "repo", "view", fork, "--json", "name"],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, encoding="utf-8", check=False,
     )
     if result.returncode != 0:
         print(f"Creo il fork {fork}…", flush=True)

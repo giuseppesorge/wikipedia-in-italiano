@@ -109,7 +109,8 @@ class UsageLimitError(RuntimeError):
 
 def _run(command, timeout):
     return subprocess.run(
-        command, capture_output=True, text=True, timeout=timeout, check=False
+        command, capture_output=True, text=True, encoding="utf-8",
+        timeout=timeout, check=False,
     )
 
 
@@ -137,9 +138,14 @@ class Assistant:
         nessun file: si esegue in una directory vuota.
         """
         with tempfile.TemporaryDirectory(prefix="wikitradus-") as empty:
+            # Qui lo stdout *è* la traduzione, non un messaggio di servizio:
+            # si dichiara l'encoding e si lascia la decodifica stretta. Un
+            # carattere sostituito in silenzio finirebbe committato dentro una
+            # voce, ed è il difetto che si vuole evitare; chi chiama tratta
+            # l'eccezione come «lotto non tradotto» e lo rifà.
             result = subprocess.run(
                 self._build(prompt, self.model, self.effort),
-                capture_output=True, text=True,
+                capture_output=True, text=True, encoding="utf-8",
                 timeout=timeout, cwd=empty, check=False,
             )
             diagnostic = result.stderr
@@ -167,7 +173,13 @@ class Assistant:
         """
         try:
             answer = self.ask(PROBE_PROMPT, timeout=PROBE_TIMEOUT)
-        except (subprocess.TimeoutExpired, RuntimeError) as exc:
+        # `UnicodeDecodeError` sta in elenco perché la risposta si decodifica
+        # in UTF-8 stretto: una CLI che risponde con altri byte è una CLI che
+        # non va, e va trattata come tale invece di interrompere tutto - così
+        # resta possibile provare l'altra.
+        except (
+            subprocess.TimeoutExpired, RuntimeError, UnicodeDecodeError
+        ) as exc:
             if _looks_like_bad_model(str(exc)):
                 raise PrerequisiteError(
                     f"'{self.name}' non accetta il modello '{self.model}' o "
